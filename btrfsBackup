@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# backup /home and / btrfs subvolumes to /mnt/backup
+# exit codes
+# 0 success
+# 1--64 mount failure (mount exit code)
+# 65 invalid input
+# 66 incorrect subvolumes
+# 67 btrfs error
+# 68 user cancelled action
+# 69 error in send/receive
+# 70 error in delete
+
+id=$1
+
+if [[ -z $id ]]
+then
+    echo "must provid system id value"
+    exit 65
+fi
+
+
+bkdir=/mnt/backup/
+mountpoint -q $bkdir || mount $bkdir || exit $?
+
+homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
+rootvol=$(btrfs subvolume list / |grep "$id"r|rev|cut -d ' ' -f1|rev)
+
+if [[ `echo $homevol | wc -l` != 1 ]]
+then
+    echo "old home subvolume not found" 
+    exit 66
+fi
+if [[ `echo $rootvol | wc -l` != 1 ]]
+then
+    echo "old root subvolume not found" 
+    exit 66
+fi
+
+dateid=$(date -u +%y%m%d)
+if [[ -n $(btrfs subvolume list / |grep $dateid) ]]
+then
+    echo "backup subvolume may already exist"
+    exit 66
+fi
+
+btrfs subvolume snapshot / /svols/"$id"r$dateid -r || exit 67
+btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || exit 67
+
+commandh="btrfs send -p /svols/$homevol /svols/$id"h"$dateid | btrfs receive /mnt/backup/"
+commandr="btrfs send -p /svols/$rootvol /svols/$id"r"$dateid | btrfs receive /mnt/backup/"
+
+echo "About to execute:"
+echo $commandh
+echo $commandr
+echo "Existing subvolumes:"
+btrfs subvolume list /
+read
+
+if [[ -n $REPLY ]]
+then exit 68
+fi
+
+eval $commandh && eval $commandr || exit 69
+
+echo "About to delete old subvolumes; subvolumes in /:"
+btrfs subvolume list /
+echo "subvolumes in /mnt/backup:"
+btrfs subvolume list /mnt/backup/ | grep $dateid
+read
+
+if [[ -n $REPLY ]]
+then exit 68
+fi
+
+btrfs subvolume delete /svols/$homevol && btrfs subvolume delete /svols/$rootvol || exit 70
+exit 0
