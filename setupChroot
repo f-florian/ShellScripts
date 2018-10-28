@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Prepare environment for chroot and enter it
+# The chroot environment will be located at /mnt/$1;
+# the root dyrectory and other non-standar directories must be present in fstab, or be properly mounted before executing this script
+
+if [[ -z $1 ]]
+then
+    echo id argument required
+    exit 1
+fi
+
+# mount relevant directories listed in fstab
+for mp in `grep "/mnt/$1" /etc/fstab|sed 's/[[:space:]]\+/:/g'`
+do
+    args=(`echo $mp|sed 's/:/ /g'`)
+    echo ${args[1]}
+    mount ${args[1]}
+done
+
+# mount some standard directories
+mount -t proc proc /mnt/$1/proc
+for i in sys dev /dev/pts /run/shm
+do
+mount -B $i /mnt/$1$i
+done
+for i in sys dev
+do
+mount --make-rslave /mnt/$1/$i
+done
+
+# a few systems require this
+mkdir /mnt/$1/run/shm
+
+# these directories are by default in PATH only in certain distributions; add them
+PATH=$PATH:/bin:/sbin:/usr/local/bin:/usr/local/sbin
+
+#makes the network available after chrooting
+mkdir /mnt/$1/run/resolvconf
+cp -f /etc/resolv.conf /mnt/$1/etc/
+cp /etc/resolv.conf /mnt/$1/run/systemd/resolve/
+cp /etc/resolv.conf /mnt/$1/run/resolvconf/
+
+# chroot
+chroot /mnt/$1
