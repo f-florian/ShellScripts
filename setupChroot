@@ -1,8 +1,34 @@
 #!/bin/bash
 
-# Prepare environment for chroot and enter it
-# The chroot environment will be located at /mnt/$1;
-# the root dyrectory and other non-standar directories must be present in fstab, or be properly mounted before executing this script
+printUsage() {
+    echo "Usage: " `echo $0|rev|cut -d '/' -f1|rev` " [options] id"
+    echo "Prepare environment for chroot and enter it"
+    echo "The chroot environment will be located at /mnt/<id>;
+the root dyrectory and other non-standar directories must be present in fstab, or be properly mounted before executing this script"
+    echo "Options:
+-h: print this help and exit
+-v: print version and exit"
+}
+
+printVersion() {
+    version="1.0"
+    echo `echo $0|rev|cut -d '/' -f1|rev` " version $version."
+    echo "This software is released in public domain, see \"LICENSE\" for further details."
+}
+
+id=$1
+bkdir=$2
+
+while getopts hv: options
+do
+    case $options in
+	h) printUsage
+	   exit 0;;
+	v)printVersion
+          exit 0;;
+    esac
+done
+
 
 if [[ -z $1 ]]
 then
