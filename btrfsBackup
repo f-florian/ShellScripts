@@ -1,18 +1,43 @@
 #!/bin/bash
 
-# backup /home and / btrfs subvolumes to /mnt/backup
-# exit codes
-# 0 success
-# 1--64 mount failure (mount exit code)
-# 65 invalid input
-# 66 incorrect subvolumes
-# 67 btrfs error
-# 68 user cancelled action
-# 69 error in send/receive
-# 70 error in delete
+printUsage() {
+    echo "Usage: " `echo $0|rev|cut -d '/' -f1|rev` " [options] id [backup directory]"
+    echo "Backup /home and / btrfs subvolumes to backup directory"
+    echo "<backup directory> must be a btrfs filesystem;
+ backup will be named <backup directory>/<id>[r|h]date, so that incremental backups are possible.
+<id> is a string used to distinguish backups of different system in the same directory"
+    echo "Options:
+-h: print this help and exit
+-v: print version and exit"
+    echo "exit codes
+0 success
+1--64 mount failure (mount exit code)
+65 invalid input
+66 incorrect subvolumes
+67 btrfs error
+68 user cancelled action
+69 error in send/receive
+70 error in delete"
+}
+
+printVersion() {
+    version="1.0"
+    echo "btrfsBackup version $version."
+    echo "This software is released in public domain, see \"LICENSE\" for further details."
+}
 
 id=$1
 bkdir=$2
+
+while getopts hstv: options
+do
+    case $options in
+	h) printUsage
+	   exit 0;;
+	v)printVersion
+          exit 0;;
+    esac
+done
 
 if [[ -z $id ]]
 then
