@@ -12,15 +12,18 @@
 # 70 error in delete
 
 id=$1
+bkdir=$2
 
 if [[ -z $id ]]
 then
     echo "must provid system id value"
     exit 65
 fi
+if [[ -z $bkdir ]]
+then
+    bkdir=/mnt/backup/
+fi
 
-
-bkdir=/mnt/backup/
 mountpoint -q $bkdir || mount $bkdir || exit $?
 
 homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
