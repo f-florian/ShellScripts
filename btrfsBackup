@@ -1,14 +1,18 @@
 #!/bin/bash
 
 printUsage() {
-    echo "Usage: " `echo $0|rev|cut -d '/' -f1|rev` " [options] id [backup directory]"
+    echo "Usage: "
+    echo "" `echo $0|rev|cut -d '/' -f1|rev` " [options] id [backup directory]"
+    echo "" `echo $0|rev|cut -d '/' -f1|rev` " -n [options] [backup directory]"
     echo "Backup /home and / btrfs subvolumes to backup directory"
     echo "<backup directory> must be a btrfs filesystem;
  backup will be named <backup directory>/<id>[r|h]date, so that incremental backups are possible.
 <id> is a string used to distinguish backups of different system in the same directory"
     echo "Options:
 -h: print this help and exit
--v: print version and exit"
+-v: print version and exit
+-n: noid, set an emty id 
+-l: local, do not send subvolumes to a backup filesystem"
     echo "exit codes
 0 success
 1--64 mount failure (mount exit code)
@@ -28,28 +32,40 @@ printVersion() {
 
 id=$1
 bkdir=$2
+# nonempty id by default
+forceid=true
+# send to backup fs by default
+local=false
 
-while getopts hv: options
+while getopts hvnl: options
 do
     case $options in
 	h) printUsage
 	   exit 0;;
-	v)printVersion
-          exit 0;;
+	v) printVersion
+           exit 0;;
+        n) forceid=false
+           # empty id: first argument was backup directory
+           bkdir=$id
+           id="";;
+        l) local=true;;
     esac
 done
 
-if [[ -z $id ]]
+if [ -z $id ] && [ "$forceid" = "true" ]
 then
     echo "must provid system id value"
     exit 65
 fi
-if [[ -z $bkdir ]]
+if [ -z $bkdir ]
 then
     bkdir=/mnt/backup/
 fi
 
-mountpoint -q $bkdir || mount $bkdir || exit $?
+if [ "$local" = "false" ]
+then
+    mountpoint -q $bkdir || mount $bkdir || exit $?
+fi
 
 homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
 rootvol=$(btrfs subvolume list / |grep "$id"r|rev|cut -d ' ' -f1|rev)
@@ -78,9 +94,12 @@ btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || exit 67
 commandh="btrfs send -p /svols/$homevol /svols/$id"h"$dateid | btrfs receive /mnt/backup/"
 commandr="btrfs send -p /svols/$rootvol /svols/$id"r"$dateid | btrfs receive /mnt/backup/"
 
-echo "About to execute:"
-echo $commandh
-echo $commandr
+if [ "$local" = "false" ]
+then
+    echo "About to execute:"
+    echo $commandh
+    echo $commandr
+fi
 echo "Existing subvolumes:"
 btrfs subvolume list /
 read
@@ -89,7 +108,10 @@ if [[ -n $REPLY ]]
 then exit 68
 fi
 
-eval $commandh && eval $commandr || exit 69
+if [ "$local" = "false" ]
+then
+    eval $commandh && eval $commandr || exit 69
+fi
 
 echo "About to delete old subvolumes; subvolumes in /:"
 btrfs subvolume list /
