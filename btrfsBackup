@@ -110,7 +110,11 @@ fi
 
 if [ "$local" = "false" ]
 then
-    eval $commandh && eval $commandr || exit 69
+    eval $commandh
+    homeok=$?
+    eval $commandr
+    rootok=$?
+    $homeok && $rootok || exit 69
 fi
 
 echo "About to delete old subvolumes; subvolumes in /:"
