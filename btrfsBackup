@@ -12,7 +12,8 @@ printUsage() {
 -h: print this help and exit
 -v: print version and exit
 -n: noid, set an emty id 
--l: local, do not send subvolumes to a backup filesystem"
+-l: local, do not send subvolumes to a backup filesystem
+-c: continue, do not abort after a non fatal error"
     echo "exit codes
 0 success
 1--64 mount failure (mount exit code)
@@ -30,14 +31,38 @@ printVersion() {
     echo "This software is released in public domain, see \"LICENSE\" for further details."
 }
 
+emitError() {
+    if [ "$exitOnError" = "true" ]
+    then
+       exit $1
+    else
+        errorFlag=true
+        >&2 echo "Warning (error code $1): $2"
+    fi
+}
+
+fatal() {
+    exit $1
+}
+
+warnErrors()
+{
+    if [ "$errorFlag" = "true" ]
+    then
+        echo "\033[0;31mWarning: there were errors\033[0;31m"
+    else
+        echo "\033[0;32mNo errors since now\033[0;31m"
+    fi
+}
+
 id=$1
 bkdir=$2
-# nonempty id by default
-forceid=true
-# send to backup fs by default
-local=false
+forceid=true            # force nonempty id by default
+local=false             # send to backup fs by default
+exitOnError=true        # exit on error by default
+errorFlag=false         # no errors since now
 
-while getopts hvnl: options
+while getopts hvnle: options
 do
     case $options in
 	h) printUsage
@@ -49,13 +74,14 @@ do
            bkdir=$id
            id="";;
         l) local=true;;
+        c) exitOnError=false
     esac
 done
 
 if [ -z $id ] && [ "$forceid" = "true" ]
 then
     echo "must provid system id value"
-    exit 65
+    fatal 65
 fi
 if [ -z $bkdir ]
 then
@@ -64,7 +90,7 @@ fi
 
 if [ "$local" = "false" ]
 then
-    mountpoint -q $bkdir || mount $bkdir || exit $?
+    mountpoint -q $bkdir || mount $bkdir || emitError $? "Backup directory is not a mountpoint"
 fi
 
 homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
@@ -72,24 +98,22 @@ rootvol=$(btrfs subvolume list / |grep "$id"r|rev|cut -d ' ' -f1|rev)
 
 if [[ `echo $homevol | wc -l` != 1 ]]
 then
-    echo "old home subvolume not found" 
-    exit 66
+    error 66 "Old home subvolume not found: send command will fail " 
 fi
 if [[ `echo $rootvol | wc -l` != 1 ]]
 then
-    echo "old root subvolume not found" 
-    exit 66
+    error 66 "Old root subvolume not found: send command will fail " 
 fi
 
 dateid=$(date -u +%y%m%d)
 if [[ -n $(btrfs subvolume list / |grep $dateid) ]]
 then
     echo "backup subvolume may already exist"
-    exit 66
+    fatal 66
 fi
 
-btrfs subvolume snapshot / /svols/"$id"r$dateid -r || exit 67
-btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || exit 67
+btrfs subvolume snapshot / /svols/"$id"r$dateid -r || error 67 "Root snapshot failed: send command will fail too"
+btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || error 67  "Home snapshot failed: send command will fail too"
 
 commandh="btrfs send -p /svols/$homevol /svols/$id"h"$dateid | btrfs receive /mnt/backup/"
 commandr="btrfs send -p /svols/$rootvol /svols/$id"r"$dateid | btrfs receive /mnt/backup/"
@@ -102,30 +126,29 @@ then
 fi
 echo "Existing subvolumes:"
 btrfs subvolume list /
+warnErrors
 read
 
 if [[ -n $REPLY ]]
-then exit 68
+then fatal 68
 fi
 
 if [ "$local" = "false" ]
 then
-    eval $commandh
-    homeok=$?
-    eval $commandr
-    rootok=$?
-    $homeok && $rootok || exit 69
+    eval $commandh || error 69 "Sending home failed"
+    eval $commandr || error 69 "Sending root failed" 
 fi
 
 echo "About to delete old subvolumes; subvolumes in /:"
 btrfs subvolume list /
 echo "subvolumes in /mnt/backup:"
 btrfs subvolume list /mnt/backup/ | grep $dateid
+warnErrors
 read
 
 if [[ -n $REPLY ]]
-then exit 68
+then fatal 68
 fi
 
-btrfs subvolume delete /svols/$homevol && btrfs subvolume delete /svols/$rootvol || exit 70
+btrfs subvolume delete /svols/$homevol && btrfs subvolume delete /svols/$rootvol || emitError 70 "Delete commnd failed"
 exit 0
