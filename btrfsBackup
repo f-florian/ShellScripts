@@ -90,7 +90,7 @@ fi
 
 if [ "$local" = "false" ]
 then
-    mountpoint -q $bkdir || mount $bkdir || emitError $? "Backup directory is not a mountpoint"
+    mountpoint -q $bkdir || ( mount $bkdir  && mountpoint -q $bkdir)  || emitError $? "Backup directory is not a mountpoint"
 fi
 
 homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
