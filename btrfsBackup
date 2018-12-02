@@ -44,8 +44,7 @@ fatal() {
     exit $1
 }
 
-warnErrors()
-{
+warnErrors() {
     if [ "$errorFlag" = "true" ]
     then
         echo -e "\033[0;31mWarning: there were errors\033[0m"
@@ -58,6 +57,7 @@ askConfirmation() {
     if [ "$assumeYes" = "true"]
     then return 0
     fi
+    warnErrors
     if [ \( "$errorFlag" = "true" \) || \( "$assumeyes" = "false" \) ]
     then
         while [ -z "" ]
@@ -135,6 +135,8 @@ then
     fatal 66
 fi
 
+askConfirmation || fatal 68
+
 btrfs subvolume snapshot / /svols/"$id"r$dateid -r || error 67 "Root snapshot failed: send command will fail too"
 btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || error 67  "Home snapshot failed: send command will fail too"
 
@@ -149,12 +151,7 @@ then
 fi
 echo "Existing subvolumes:"
 btrfs subvolume list /
-warnErrors
-read
-
-if [[ -n $REPLY ]]
-then fatal 68
-fi
+askConfirmation || fatal 68
 
 if [ "$local" = "false" ]
 then
@@ -166,8 +163,7 @@ echo "About to delete old subvolumes; subvolumes in /:"
 btrfs subvolume list /
 echo "subvolumes in /mnt/backup:"
 btrfs subvolume list /mnt/backup/ | grep $dateid
-warnErrors
-askConfirmation
+askConfirmation ||fatal 68
 
 btrfs subvolume delete /svols/$homevol && btrfs subvolume delete /svols/$rootvol || emitError 70 "Delete commnd failed"
 exit 0
