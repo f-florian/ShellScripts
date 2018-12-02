@@ -32,12 +32,10 @@ printVersion() {
 }
 
 emitError() {
+    errorFlag=true
+    >&2 echo "Warning (error code $1): $2"
     if [ "$exitOnError" = "true" ]
-    then
-       exit $1
-    else
-        errorFlag=true
-        >&2 echo "Warning (error code $1): $2"
+    then exit $1
     fi
 }
 
