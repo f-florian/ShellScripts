@@ -47,9 +47,9 @@ warnErrors()
 {
     if [ "$errorFlag" = "true" ]
     then
-        echo -e "\033[0;31mWarning: there were errors\033[0;31m"
+        echo -e "\033[0;31mWarning: there were errors\033[0m"
     else
-        echo -e "\033[0;32mNo errors since now\033[0;31m"
+        echo -e "\033[0;32mNo errors since now\033[0m"
     fi
 }
 
