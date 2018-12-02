@@ -13,6 +13,7 @@ printUsage() {
 -v: print version and exit
 -n: noid, set an emty id 
 -l: local, do not send subvolumes to a backup filesystem
+-y: assume yes, continue without prompting if no errors occur
 -c: continue, do not abort after a non fatal error"
     echo "exit codes
 0 success
@@ -53,14 +54,36 @@ warnErrors()
     fi
 }
 
+askConfirmation() {
+    if [ "$assumeYes" = "true"]
+    then return 0
+    fi
+    if [ \( "$errorFlag" = "true" \) || \( "$assumeyes" = "false" \) ]
+    then
+        while [ -z "" ]
+        do
+            echo "continue? (y/n)"
+            read reply
+            if [ "$reply" = "y" ]
+            then return 0
+            elif [ "$reply" = "n" ]
+            then return 1
+            fi
+        done
+    fi
+}
+
 id=$1
 bkdir=$2
 forceid=true            # force nonempty id by default
 local=false             # send to backup fs by default
 exitOnError=true        # exit on error by default
 errorFlag=false         # no errors since now
+assumeyes=false         # don't prompt unless there are errors
+assumeYes=false         # don't prompt
 
-while getopts hvnle: options
+
+while getopts hvnlcyY: options
 do
     case $options in
 	h) printUsage
@@ -72,7 +95,9 @@ do
            bkdir=$id
            id="";;
         l) local=true;;
-        c) exitOnError=false
+        c) exitOnError=false;;
+        y) assumeyes=true;;
+        Y) assumeYes=true;;
     esac
 done
 
@@ -142,11 +167,7 @@ btrfs subvolume list /
 echo "subvolumes in /mnt/backup:"
 btrfs subvolume list /mnt/backup/ | grep $dateid
 warnErrors
-read
-
-if [[ -n $REPLY ]]
-then fatal 68
-fi
+askConfirmation
 
 btrfs subvolume delete /svols/$homevol && btrfs subvolume delete /svols/$rootvol || emitError 70 "Delete commnd failed"
 exit 0
