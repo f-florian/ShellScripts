@@ -14,6 +14,7 @@ printUsage() {
 -n: noid, set an emty id 
 -l: local, do not send subvolumes to a backup filesystem
 -y: assume yes, continue without prompting if no errors occur
+-Y: assume yes, never prompt
 -c: continue, do not abort after a non fatal error"
     echo "exit codes
 0 success
@@ -58,7 +59,7 @@ askConfirmation() {
     then return 0
     fi
     warnErrors
-    if [ \( "$errorFlag" = "true" \) || \( "$assumeyes" = "false" \) ]
+    if [[ ( "$errorFlag" = "true" ) || ( "$assumeyes" = "false" ) ]]
     then
         while [ -z "" ]
         do
