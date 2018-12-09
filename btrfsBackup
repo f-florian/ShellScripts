@@ -55,7 +55,7 @@ warnErrors() {
 }
 
 askConfirmation() {
-    if [ "$assumeYes" = "true"]
+    if [ "$assumeYes" = "true" ]
     then return 0
     fi
     warnErrors
