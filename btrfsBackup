@@ -84,7 +84,7 @@ assumeyes=false         # don't prompt unless there are errors
 assumeYes=false         # don't prompt
 
 
-while getopts hvnlcyY: options
+while getopts hvnlcyY options
 do
     case $options in
 	h) printUsage
@@ -101,6 +101,8 @@ do
         Y) assumeYes=true;;
     esac
 done
+
+shift $((OPTIND - 1))
 
 if [ -z $id ] && [ "$forceid" = "true" ]
 then
