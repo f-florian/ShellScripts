@@ -74,8 +74,6 @@ askConfirmation() {
     fi
 }
 
-id=$1
-bkdir=$2
 forceid=true            # force nonempty id by default
 local=false             # send to backup fs by default
 exitOnError=true        # exit on error by default
@@ -91,10 +89,7 @@ do
 	   exit 0;;
 	v) printVersion
            exit 0;;
-        n) forceid=false
-           # empty id: first argument was backup directory
-           bkdir=$id
-           id="";;
+        n) forceid=false;;
         l) local=true;;
         c) exitOnError=false;;
         y) assumeyes=true;;
@@ -104,11 +99,19 @@ done
 
 shift $((OPTIND - 1))
 
-if [ -z $id ] && [ "$forceid" = "true" ]
+if [ "$forceid" = "true" ]
 then
-    echo "must provid system id value"
-    fatal 65
+    id=$1
+    bkdir=$2
+    if [ -z $id ]
+    then
+        echo "must provid system id value"
+        fatal 65
+    fi
+else
+    bkdir=$1
 fi
+
 if [ -z $bkdir ]
 then
     bkdir=/mnt/backup/
