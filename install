@@ -1,0 +1,13 @@
+#!/bin/sh
+
+allScripts=(setupChroot btrfsBackup)
+
+sourceDir=$(echo $0 | sed -r 's/install$//')
+systemDir=/usr/local/sbin/
+permissions=755
+
+for script in ${allScripts[*]}
+do
+    cp -f $sourceDir$script $systemDir$script
+    chmod $permissions $systemDir$script
+done
