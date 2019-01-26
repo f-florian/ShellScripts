@@ -48,7 +48,7 @@ done
 mount -t proc proc /mnt/$1/proc
 for i in sys dev /dev/pts /run/shm
 do
-mount -B $i /mnt/$1$i
+mount -B $i /mnt/$1/$i
 done
 for i in sys dev
 do
