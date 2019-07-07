@@ -1,10 +1,10 @@
 #!/bin/sh
 
-allScripts=(setupChroot btrfsBackup)
-
-sourceDir=$(echo $0 | sed -r 's/install$//')
 systemDir=/usr/local/sbin/
 permissions=755
+
+sourceDir=$(echo $0 | sed -r 's/install$//')
+allScripts=`ls $sourceDir|grep -Evi 'licence|license|install'`
 
 for script in ${allScripts[*]}
 do
