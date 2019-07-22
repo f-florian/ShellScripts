@@ -34,8 +34,7 @@ Backup will be named <backup directory>/<id>[r|h]date, so that incremental backu
 }
 
 printVersion() {
-    version="1.0"
-    echo "btrfsBackup version $version."
+    echo "$programName version $version (called as $0)."
     echo "This software is released into the public domain, see \"LICENSE\" for further details."
 }
 
