@@ -7,6 +7,7 @@ options="nlyYcq"
 printUsage() {
     echo "Usage: "
     echo "$programName [-h|-v]"
+
     echo "$programName [-$options] <id> [backup directory]"
     echo "$programName -n [-$options] [backup directory]"
     echo "Backup /home and / btrfs subvolumes to backup directory"
@@ -116,9 +117,9 @@ shift $((OPTIND - 1))
 
 if [ "$forceid" = "true" ]
 then
-    id=$1
+    sid=$1
     bkdir=$2
-    if [ -z $id ]
+    if [ -z $sid ]
     then
         echo "must provid system id value"
         fatal 65
@@ -143,8 +144,8 @@ fi
 
 printMessage "Trying to determine old volume names""..."
 
-homevol=$(btrfs subvolume list / |grep "$id"h|rev|cut -d ' ' -f1|rev)
-rootvol=$(btrfs subvolume list / |grep "$id"r|rev|cut -d ' ' -f1|rev)
+homevol=$(btrfs subvolume list / |grep "$sid"h|rev|cut -d ' ' -f1|rev)
+rootvol=$(btrfs subvolume list / |grep "$sid"r|rev|cut -d ' ' -f1|rev)
 
 if [[ `echo $homevol | wc -l` != 1 ]]
 then
@@ -166,17 +167,17 @@ fi
 
 askConfirmation || fatal 68
 
-btrfs subvolume snapshot / /svols/"$id"r$dateid -r || error 67 "Root snapshot failed: send command will fail too"
-btrfs subvolume snapshot /home /svols/"$id"h$dateid -r || error 67  "Home snapshot failed: send command will fail too"
+btrfs subvolume snapshot / /svols/"$sid"r$dateid -r || emitError 67 "Root snapshot failed: send command will fail too"
+btrfs subvolume snapshot /home /svols/"$sid"h$dateid -r || emitError 67  "Home snapshot failed: send command will fail too"
 
-commandh="btrfs send -p /svols/$homevol /svols/$id"h"$dateid | btrfs receive $bkdir"
-commandr="btrfs send -p /svols/$rootvol /svols/$id"r"$dateid | btrfs receive $bkdir"
+commandh="btrfs send -p /svols/$homevol /svols/$sid"h"$dateid | btrfs receive $bkdir"
+commandr="btrfs send -p /svols/$rootvol /svols/$sid"r"$dateid | btrfs receive $bkdir"
 
 if [ "$local" = "false" ]
 then
     printMessage "About to execute:"
-    printMessage $commandh
-    printMessage $commandr
+    printMessage "$commandh"
+    printMessage "$commandr"
 fi
 
 printMessage "Existing subvolumes: $(btrfs subvolume list /)"
@@ -184,8 +185,8 @@ askConfirmation || fatal 68
 
 if [ "$local" = "false" ]
 then
-    eval $commandh || error 69 "Sending home failed"
-    eval $commandr || error 69 "Sending root failed"
+    eval $commandh || emitError 69 "Sending home failed"
+    eval $commandr || emitError 69 "Sending root failed"
 fi
 
 printMessage "About to delete old subvolumes; subvolumes in /: $(btrfs subvolume list /)"
