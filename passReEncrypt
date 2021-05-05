@@ -1,0 +1,157 @@
+#!/bin/bash
+
+version="1.0"
+programName=`echo $0|rev|cut -d '/' -f1|rev`
+options="yC"
+
+printUsage() {
+    echo "Usage: "
+    echo "$programName [-h|-v]"
+
+    echo "$programName [-${options}] <file>"
+    echo "Re-encrypt a (zx2c4) pass file [http://www.passwordstore.org] to a different set of keys."
+    echo "<file> must be the base file name (without \".gpg\") of the file that should be re-encrypted, which should be located in the ${HOME}/.password-store directory.
+This means that if <file> is \"name\" the file ${HOME}/.password-store/name.gpg will be re-encrypted.
+By default it will read key ids (and optional descriptions) from ${HOME}/.config/ShellScripts/passReEncrypt and for each key ask which one(s) should be used.
+NOTE: although designed for pass, this can easily be adapted to any gpg file.
+TODO: fix the documentation."
+    echo "Options:
+-h: print this help and exit
+-v: print version and exit
+-y: assume yes, ignore warnings and encrypt to all specified keys
+-C <configuration>: get the list of keys from <configuration> instead of ${HOME}/.config/ShellScripts/passReEncrypt"
+    echo "exit codes
+0 success
+1 file not found
+2 no key selected
+3 the configuration file was not found
+4: encryption failed"
+}
+
+fileNotFound=1
+configNotFound=3
+noKey=2
+gpgError=4
+
+printVersion() {
+    echo "$programName version $version (called as $0)."
+    echo "This software is released into the public domain, see \"LICENSE\" for further details."
+}
+
+emitError() {
+    errorFlag=true
+    >&2 echo "Warning (error code $1): $2"
+    if [ "$exitOnError" = "true" ]
+    then exit $1
+    fi
+}
+
+fatal() {
+    exit $1
+}
+
+askConfirmation() {
+    if [ "$assumeYes" = "true" ]
+    then return 0
+    fi
+    while [ -z "" ]
+    do
+        echo "continue? (y/n)"
+        read reply
+        if [ "$reply" = "y" ]
+        then return 0
+        elif [ "$reply" = "n" ]
+        then return 1
+        fi
+    done
+}
+
+printMessage() {
+    if [ "$verbose" = "true" ]
+    then
+        echo "$1"
+    fi
+}
+
+exitOnError="false"       # exit on error by default
+verbose="true"            # write information on operation by default
+assumeYes="false"         # don't prompt
+configFileDefault="${HOME}/.config/ShellScripts/passReEncrypt"
+configFile=$configFileDefault
+
+while getopts $options currentOption
+do
+    case $currentOption in
+	h) printUsage
+	   exit 0;;
+	v) printVersion
+           exit 0;;
+        y) assumeYes=true
+           shift;;
+        C) configFile="${2:-1}"
+           shift 2;;
+        *) emitError "Unrecognised option, check that all possible options are managed correctly!"
+    esac
+done
+
+# shift $((OPTIND - 1))
+
+while [[ -z "" ]]
+do
+    if [[ -a $configFile ]]
+    then
+        break
+    fi
+    if [[ "${configFile}" = "${configFileDefault}" ]]
+    then
+        fatal ${configNotFound}
+    fi
+    emitError "\033[0;31m${configFile} not found, using default!\033[0m"
+    if askConfirmation
+    then
+        configFile=${configFileDefault}
+    else
+        fatal ${configNotFound}
+    fi
+done
+
+printMessage "Reading configuration file ${configFile} ..."
+
+fileName=$1
+
+if [[ ! -a $fileName ]]
+then
+    emitError $fileNotFound "File not found"
+    fatal $fileNotFound
+fi
+    
+keylist=""
+exec 3<$configFile
+
+while read key <&3
+do
+    if [[ -z "$key" ]]
+    then continue
+    fi
+    keyArray=($key)
+    keyId=${keyArray[0]}
+    keyDescription=${keyArray[1]}
+    if [[ "$keyId" = "!" ]]
+    then continue
+    fi
+    echo "Using ${keyDescription} (id: ${keyId})."
+    if askConfirmation
+    then
+        keylist="${keylist} -r ${keyId}"
+    fi
+done
+
+statement="cat ${fileName}.gpg | gpg | gpg -e${keylist} -- > ${fileName}.gpg.bak; mv ${fileName}.gpg.bak ${fileName}.gpg"
+echo "about to execute: ${statement}"
+
+if askConfirmation
+then
+    exec $statement
+fi
+
+exit 0
