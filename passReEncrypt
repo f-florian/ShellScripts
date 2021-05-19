@@ -119,9 +119,9 @@ printMessage "Reading configuration file ${configFile} ..."
 
 fileName=$1
 
-if [[ ! -a $fileName ]]
+if [[ ! -a ${fileName}.gpg ]]
 then
-    emitError $fileNotFound "File not found"
+    emitError $fileNotFound "File ${fileName} not found"
     fatal $fileNotFound
 fi
     
